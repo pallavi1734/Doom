@@ -1,30 +1,30 @@
-# Base Image 
-FROM fedora:37
-#FROM colserra/fedora37_wf
-# 2nd docker image allows skipping step 2-3 & 5-6
+# Use a lightweight Python image
+FROM python:3.10-slim
 
-# 1. Setup home directory, non interactive shell and timezone
-RUN mkdir -p /bot /tgenc && chmod 777 /bot
-WORKDIR /bot
-ENV DEBIAN_FRONTEND=noninteractive
-ENV TZ=Africa/Lagos
-ENV TERM=xterm
+# Set the working directory
+WORKDIR /app
 
-# 2. Install Dependencies
-RUN dnf -qq -y update && dnf -qq -y install git aria2 bash xz wget curl pv jq python3-pip mediainfo psmisc procps-ng qbittorrent-nox && if [[ $(arch) == 'aarch64' ]]; then   dnf -qq -y install gcc python3-devel; fi && python3 -m pip install --upgrade pip setuptools
-
-# 3. Install latest ffmpeg
-RUN arch=$(arch | sed s/aarch64/arm64/ | sed s/x86_64/64/) && \
-    wget -q https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-n7.1-latest-linux${arch}-gpl-7.1.tar.xz && tar -xvf *xz && cp *7.1/bin/* /usr/bin && rm -rf *xz && rm -rf *7.1
-
-# 4. Copy files from repo to home directory
+# Copy the current directory contents into the container
 COPY . .
 
-# 5. Install python3 requirements
-RUN pip3 install -r requirements.txt
+# Install necessary packages including qBittorrent-nox
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    aria2 \
+    qbittorrent-nox \
+    && apt-get clean
 
-# 6. cleanup for arm64
-RUN if [[ $(arch) == 'aarch64' ]]; then   dnf -qq -y history undo last; fi && dnf clean all
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
-# 7. Start bot
-CMD ["bash","run.sh"]
+# Expose the port that your bot will use (adjust if necessary)
+EXPOSE 8000
+
+# Start qBittorrent-nox in the background
+RUN mkdir -p /root/.config/qBittorrent
+COPY qbittorrent.conf /root/.config/qBittorrent/qBittorrent.conf
+CMD qbittorrent-nox &
+
+# Start the bot
+CMD ["python3", "bot/bot.py"]
