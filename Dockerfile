@@ -1,30 +1,32 @@
 # Use a lightweight Python image
-FROM python:3.10-slim
+FROM python:3.11-slim
 
-# Set the working directory
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the current directory contents into the container
-COPY . .
+# Copy project files into the container
+COPY . /app
 
-# Install necessary packages including qBittorrent-nox
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     wget \
     curl \
     aria2 \
     qbittorrent-nox \
+    libssl-dev \
+    libcurl4-openssl-dev \
     && apt-get clean
 
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port that your bot will use (adjust if necessary)
+# Expose the port if your bot uses a web server (adjust if necessary)
 EXPOSE 8000
 
-# Start qBittorrent-nox in the background
+# Run qBittorrent-nox in the background
 RUN mkdir -p /root/.config/qBittorrent
 COPY qbittorrent.conf /root/.config/qBittorrent/qBittorrent.conf
 CMD qbittorrent-nox &
 
-# Start the bot
+# Run the bot
 CMD ["python3", "bot/bot.py"]
